@@ -1,8 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="untitled1"
+        android:label="Wing Run"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="assets/wingrun.png">
         <activity
             android:name=".MainActivity"
             android:exported="true"

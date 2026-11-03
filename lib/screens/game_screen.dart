@@ -18,20 +18,27 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen>
     with SingleTickerProviderStateMixin {
   // Tuning (open items in PLAN.md)
-  static const blockSpeed = 0.42; // screen widths per second
-  static const spawnEvery = 1.5; // seconds between columns
+  static const blockSpeed = 0.42; // screen widths per second at the start
+  static const firstColumnAt = 0.42; // screen widths before the first column
+  static const spawnGap = 0.63; // screen widths between two columns
+  static const maxSpeedFactor = 2.5; // cap: 2.5x the starting speed
+  static const growthPer10s = 1.08; // +8% every 10 seconds (compounding)
   static const scorePerSecond = 50;
+  // How far the bat can travel per second, as a fraction of the play-area
+  // height. MUST match the real speed in component/bat.dart (tune by testing).
+  static const batSpeedFrac = 0.8;
 
   late final Ticker _ticker;
   final _repaint = ValueNotifier<int>(0);
   final _rnd = Random();
+  final _cols = ColumnMaker(); // builds columns around a moving gap
   ui.Image? _img;
 
   Size _area = Size.zero;
   Bat? _bat;
   final List<Block> _blocks = [];
   bool _up = false, _down = false, _over = false;
-  double _elapsed = 0, _spawnIn = 1;
+  double _elapsed = 0, _distToNext = 0;
   Duration _last = Duration.zero;
   int _score = 0, _bestAtStart = 0;
 
@@ -51,14 +58,19 @@ class _GameScreenState extends State<GameScreen>
   void _reset() {
     _bat = Bat(_area);
     _blocks.clear();
-    _elapsed = 0;
-    _spawnIn = 1;
+    _cols.reset();
+    _elapsed = 0; // also resets the speed to its starting value
+    _distToNext = _area.width * firstColumnAt;
     _score = 0;
     _over = false;
     _up = _down = false;
     _bestAtStart = session.current.best;
     _ticker.muted = false;
   }
+
+  /// Block speed multiplier: 1.0 at the start, +8% per 10 s, max 2.5.
+  double get _speedFactor =>
+      min(maxSpeedFactor, pow(growthPer10s, _elapsed / 10).toDouble());
 
   void _tick(Duration d) {
     final dt = ((d - _last).inMicroseconds / 1e6).clamp(0.0, 0.05);
@@ -69,13 +81,21 @@ class _GameScreenState extends State<GameScreen>
     _elapsed += dt;
     bat.update(dt, (_down ? 1 : 0) - (_up ? 1 : 0));
 
-    _spawnIn -= dt;
-    if (_spawnIn <= 0) {
-      _blocks.addAll(Block.column(_rnd, _area));
-      _spawnIn = spawnEvery;
+    // Blocks speed up over time; the bat's speed stays the same.
+    final blockPx = _area.width * blockSpeed * _speedFactor; // px per second
+
+    // Spacing by distance: the gap between two columns never changes.
+    _distToNext -= blockPx * dt;
+    if (_distToNext <= 0) {
+      // The gap may only move as far as the bat can travel before the next
+      // column arrives (with a safety margin), so every column stays possible.
+      final secondsBetween = spawnGap / (blockSpeed * _speedFactor);
+      final maxShift = batSpeedFrac * secondsBetween * 0.6;
+      _blocks.addAll(_cols.make(_rnd, _area, maxShift));
+      _distToNext = _area.width * spawnGap;
     }
     for (final b in _blocks) {
-      b.update(dt, _area.width * blockSpeed);
+      b.update(dt, blockPx);
     }
     _blocks.removeWhere((b) => b.gone);
 
@@ -88,6 +108,7 @@ class _GameScreenState extends State<GameScreen>
     _repaint.value++;
     if (dead) {
       _over = true;
+      _score = newScore; // the saved score matches the last displayed one
       session.submitScore(_score);
       setState(() {});
     } else if (newScore != _score) {

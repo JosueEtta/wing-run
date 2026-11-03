@@ -38,6 +38,12 @@ class AppDb {
   Future<int> addUser(String name) async =>
       (await db).insert('users', {'name': name, 'best': 0});
 
+  Future<void> renameUser(int id, String name) async => (await db)
+      .update('users', {'name': name}, where: 'id = ?', whereArgs: [id]);
+
+  Future<void> deleteUser(int id) async =>
+      (await db).delete('users', where: 'id = ?', whereArgs: [id]);
+
   Future<void> setBest(int id, int best) async => (await db)
       .update('users', {'best': best}, where: 'id = ?', whereArgs: [id]);
 
@@ -56,6 +62,8 @@ class AppDb {
 
 /// App-wide state: users + currently selected user (remembered in SQLite).
 class Session extends ChangeNotifier {
+  static const maxName = 12;
+
   List<AppUser> users = [];
   int? currentId;
   final _db = AppDb.instance;
@@ -65,27 +73,61 @@ class Session extends ChangeNotifier {
 
   Future<void> load() async {
     users = await _db.users();
-    if (users.isEmpty) {
-      currentId = await _db.addUser('Player 1');
-      users = await _db.users();
-    } else {
+    // No users yet = first launch: the home screen asks for a name.
+    if (users.isNotEmpty) {
       final saved = await _db.currentId();
       currentId = users.any((u) => u.id == saved) ? saved : users.first.id;
+      await _db.setCurrentId(currentId!);
     }
-    await _db.setCurrentId(currentId!);
     notifyListeners();
   }
 
-  /// Returns false if the name is empty or already used.
+  /// Trims and collapses inner spaces, so "Ann  Lee" and "Ann Lee" match.
+  String _clean(String name) => name.trim().replaceAll(RegExp(r'\s+'), ' ');
+
+  /// One rule for create AND rename. Returns an error message, or null if the
+  /// name is valid. Names are unique, ignoring case. [exceptId] lets a user
+  /// keep (or re-case) their own name when renaming.
+  String? validateName(String name, {int? exceptId}) {
+    final n = _clean(name);
+    if (n.isEmpty) return 'Enter a name';
+    if (n.length > maxName) return 'Max $maxName characters';
+    final taken = users.any(
+            (u) => u.id != exceptId && u.name.toLowerCase() == n.toLowerCase());
+    return taken ? 'This name is already used' : null;
+  }
+
+  /// Returns false if the name is empty, too long or already used.
   Future<bool> addUser(String name) async {
-    name = name.trim();
-    if (name.isEmpty ||
-        users.any((u) => u.name.toLowerCase() == name.toLowerCase())) {
-      return false;
-    }
-    currentId = await _db.addUser(name);
+    if (validateName(name) != null) return false;
+    currentId = await _db.addUser(_clean(name));
     await _db.setCurrentId(currentId!);
     users = await _db.users();
+    notifyListeners();
+    return true;
+  }
+
+  /// Returns an error message, or null when the user was renamed.
+  Future<String?> renameUser(int id, String name) async {
+    final error = validateName(name, exceptId: id);
+    if (error != null) return error;
+    await _db.renameUser(id, _clean(name));
+    users = await _db.users();
+    notifyListeners();
+    return null;
+  }
+
+  /// Returns false when this is the last user (at least one must remain).
+  /// If the deleted user was the current one, the top-ranked remaining user
+  /// becomes current.
+  Future<bool> deleteUser(int id) async {
+    if (users.length <= 1) return false;
+    await _db.deleteUser(id);
+    users = await _db.users();
+    if (currentId == id) {
+      currentId = users.first.id;
+      await _db.setCurrentId(currentId!);
+    }
     notifyListeners();
     return true;
   }

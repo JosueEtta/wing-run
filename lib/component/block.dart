@@ -1,57 +1,82 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import '../theme.dart';
 
+/// One blue block, attached to the top or the bottom edge of the play area.
 class Block {
-  Block({required this.x, required this.width, required this.length, required this.top});
+  Block({
+    required this.x,
+    required this.width,
+    required this.fromTop,
+    required this.lengthFrac,
+  });
 
-  double x;
-  final double width;
-  final double length;
-  final bool top;
+  double x; // left edge, in pixels
+  final double width; // in pixels
+  final bool fromTop;
+  final double lengthFrac; // fraction of the play-area height
 
-  /// Max length: 40% of screen height, for every block.
-  static const maxFraction = 0.4;
-
-  /// Spawns a column: top only, bottom only, or both.
-  /// Both <= 0.4 each, so the gap is always >= 20% of the height.
-  static List<Block> column(Random r, Size area) {
-    final w = area.height * 0.1;
-    Block make(bool top) => Block(
-      x: area.width,
-      width: w,
-      length: area.height * (0.15 + r.nextDouble() * (maxFraction - 0.15)),
-      top: top,
-    );
-    switch (r.nextInt(3)) {
-      case 0:
-        return [make(true)];
-      case 1:
-        return [make(false)];
-      default:
-        return [make(true), make(false)];
-    }
-  }
-
-  Rect rect(double h) => Rect.fromLTWH(x, top ? 0 : h - length, width, length);
-
-  void update(double dt, double speed) => x -= speed * dt;
+  static const _blue = Color(0xFF2563EB);
+  static const _navy = Color(0xFF0F172A);
+  static const _light = Color(0xFF93C5FD);
 
   bool get gone => x + width < 0;
 
-  void paint(Canvas c, double h) {
-    final r = rect(h);
-    c.drawRect(r, Paint()..color = C.blue);
+  void update(double dt, double pxPerSecond) => x -= pxPerSecond * dt;
+
+  Rect rect(double height) {
+    final len = lengthFrac * height;
+    return fromTop
+        ? Rect.fromLTWH(x, 0, width, len)
+        : Rect.fromLTWH(x, height - len, width, len);
+  }
+
+  void paint(Canvas c, double height) {
+    final r = rect(height);
+    c.drawRect(r, Paint()..color = _blue);
+    // light highlight stripe
     c.drawRect(
-      Rect.fromLTWH(r.left + 5, r.top + 3, 6, r.height - 6),
-      Paint()..color = C.lightBlue,
-    );
+        Rect.fromLTWH(r.left + 5, r.top, 5, r.height), Paint()..color = _light);
+    // dark outline
     c.drawRect(
-      r.deflate(1.5),
-      Paint()
-        ..color = C.navy
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3,
-    );
+        r.deflate(1.5),
+        Paint()
+          ..color = _navy
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3);
+  }
+}
+
+/// Builds columns around a gap whose center moves from one column to the next.
+///
+/// The gap is chosen first; the top block fills the space above it and the
+/// bottom block the space below it. So the bat can never sit still: the free
+/// space is always somewhere new. All sizes are fractions of the height.
+class ColumnMaker {
+  static const minGap = 0.20; // never smaller than 20% (plan rule)
+  static const maxGap = 0.32;
+  static const edgeMargin = 0.03; // keep the gap clear of the red edges
+  static const widthFrac = 0.15; // block width, as a fraction of the height
+
+  double _prevCenter = 0.5;
+
+  void reset() => _prevCenter = 0.5;
+
+  /// [maxShift]: the farthest the gap center may move since the last column
+  /// (fraction of the height), computed from the bat's travel time.
+  List<Block> make(Random rnd, Size area, double maxShift) {
+    final gap = minGap + rnd.nextDouble() * (maxGap - minGap);
+    final lo = gap / 2 + edgeMargin;
+    final hi = 1 - gap / 2 - edgeMargin;
+    final shift = (rnd.nextDouble() * 2 - 1) * maxShift;
+    final center = (_prevCenter + shift).clamp(lo, hi).toDouble();
+    _prevCenter = center;
+
+    final topLen = center - gap / 2;
+    final bottomLen = 1 - center - gap / 2;
+    final w = area.height * widthFrac;
+    return [
+      Block(x: area.width, width: w, fromTop: true, lengthFrac: topLen),
+      Block(x: area.width, width: w, fromTop: false, lengthFrac: bottomLen),
+    ];
   }
 }

@@ -2,16 +2,61 @@ import 'package:flutter/material.dart';
 import '../component/bat.dart';
 import '../data/db.dart';
 import '../theme.dart';
+import '../widgets/add_user_dialog.dart';
 import '../widgets/pixel_widgets.dart';
 import '../widgets/user_switcher.dart';
 import 'game_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Wait for the first frame, then check if this is the first launch.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _askNameOnFirstLaunch());
+  }
+
+  /// First launch = no user in the database yet.
+  Future<void> _askNameOnFirstLaunch() async {
+    if (!mounted || session.users.isNotEmpty) return;
+    final name = await showAddUserDialog(context, first: true);
+    if (name == null) return;
+    await _createUser(name);
+  }
+
+  Future<void> _createUser(String name) async {
+    // TODO: replace this line with the method of your Session class (in
+    // data/db.dart) that saves the user in SQLite, makes him the current
+    // user, and calls notifyListeners() so the leaderboard refreshes.
+    await session.addUser(name);
+  }
+
+  void _play() {
+    // Safety net: never open the game without a user.
+    if (session.users.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Create a user first, then press Play.')),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const GameScreen()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: Colors.white,
+    // The Add User dialog handles the keyboard itself. Without this line the
+    // home screen shrinks behind it and overflows in landscape.
+    resizeToAvoidBottomInset: false,
     body: SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -30,8 +75,7 @@ class HomeScreen extends StatelessWidget {
                   label: 'PLAY',
                   icon: Icons.play_arrow,
                   fontSize: 20,
-                  onTap: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const GameScreen())),
+                  onTap: _play,
                 ),
               ],
             ),

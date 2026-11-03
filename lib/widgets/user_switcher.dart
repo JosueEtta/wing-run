@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import '../data/db.dart';
 import '../theme.dart';
+import '../widgets/add_user_dialog.dart';
+import '../widgets/manage_users_dialog.dart';
 import '../widgets/pixel_widgets.dart';
 
-/// Round avatar + name. Tap -> panel with all users and "New user".
+/// Round avatar + name. Tap -> panel with all users, "New user" and
+/// "Manage users" (rename / delete).
 class UserSwitcher extends StatelessWidget {
   const UserSwitcher({super.key, this.onOpen, this.onClose});
   final VoidCallback? onOpen;
 
-  /// Called when the panel closes; [changed] is true if the current user changed.
+  /// Called when the panel closes; [changed] is true if the current user changed
+  /// (selecting another user, or deleting the current one).
   final void Function(bool changed)? onClose;
 
   Future<void> _open(BuildContext context) async {
@@ -44,8 +48,8 @@ class _UserPanel extends StatelessWidget {
   const _UserPanel();
 
   Future<void> _newUser(BuildContext context) async {
-    final name = await showDialog<String>(
-        context: context, builder: (_) => const _NewUserDialog());
+    // Same dialog (and same naming rule) as the first launch and the Add button.
+    final name = await showAddUserDialog(context);
     if (name != null && await session.addUser(name) && context.mounted) {
       Navigator.pop(context);
     }
@@ -94,69 +98,14 @@ class _UserPanel extends StatelessWidget {
             color: C.blue,
             onTap: () => _newUser(context),
           ),
-        ]),
-      ),
-    ),
-  );
-}
-
-class _NewUserDialog extends StatefulWidget {
-  const _NewUserDialog();
-  @override
-  State<_NewUserDialog> createState() => _NewUserDialogState();
-}
-
-class _NewUserDialogState extends State<_NewUserDialog> {
-  final _c = TextEditingController();
-  String? _error;
-
-  void _submit() {
-    final n = _c.text.trim();
-    if (n.isEmpty) return setState(() => _error = 'Enter a name');
-    if (session.users.any((u) => u.name.toLowerCase() == n.toLowerCase())) {
-      return setState(() => _error = 'Name already used');
-    }
-    Navigator.pop(context, n);
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Dialog(
-    backgroundColor: Colors.transparent,
-    child: SingleChildScrollView(
-      child: Container(
-        width: 340,
-        padding: const EdgeInsets.all(16),
-        decoration: pixelBox(color: Colors.white, shadow: 6),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text('ADD USER', style: pixel(14)),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _c,
-            autofocus: true,
-            maxLength: 12,
-            style: body(26),
-            onSubmitted: (_) => _submit(),
-            decoration: InputDecoration(
-              hintText: 'Enter user name',
-              hintStyle: body(26, color: C.silver),
-              errorText: _error,
-              counterText: '',
-              border: const OutlineInputBorder(
-                  borderRadius: BorderRadius.zero,
-                  borderSide: BorderSide(color: C.navy, width: 3)),
-              focusedBorder: const OutlineInputBorder(
-                  borderRadius: BorderRadius.zero,
-                  borderSide: BorderSide(color: C.blue, width: 3)),
-            ),
+          const SizedBox(height: 8),
+          PixelButton(
+            label: 'MANAGE USERS',
+            fontSize: 10,
+            color: Colors.white,
+            textColor: C.navy,
+            onTap: () => showManageUsers(context),
           ),
-          const SizedBox(height: 12),
-          PixelButton(label: 'OK', color: C.red, onTap: _submit),
         ]),
       ),
     ),
