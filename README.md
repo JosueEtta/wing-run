@@ -1,12 +1,16 @@
 # 🦇 Wing Run
 
+![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)
+
 **Wing Run** is a 2D endless arcade-style obstacle-avoidance game built with **Flutter and Dart**. Take control of a flying bat, move up and down to navigate through incoming obstacle columns, and survive as long as possible to earn a high score.
 
 The game is designed for landscape play and features a retro-inspired pixel-art interface, sound effects, background music, multiple local player profiles, and a persistent leaderboard.
 
 ## 🎮 Game Preview
 
-![Wing Run game home screen](docs/images/wing-run-screenshot.png)
+![Wing Run app artwork](assets/wingrun.png)
+
+*The image above is the app artwork currently included in the repository.*
 
 ## ✨ Features
 
@@ -17,7 +21,7 @@ The game is designed for landscape play and features a retro-inspired pixel-art 
 - **Local player profiles:** create, rename, delete, and switch between player profiles.
 - **Leaderboard:** compare the best scores saved on the device.
 - **Pause and restart:** pause a run, resume it, restart after a game over, or return to the home screen.
-- **Sound and music:** looping background music and a collision sound effect.
+- **Sound and music:** background music and a collision sound effect.
 - **Retro-inspired interface:** pixel-style typography, a bat sprite, and animated obstacle decorations.
 - **Offline local data:** player profiles and best scores are stored locally with SQLite.
 
@@ -119,28 +123,28 @@ Transfer the APK to an Android device and install it. Android may ask you to all
 
 ## 🗂️ Project Structure
 
-The main source files are organized as follows:
+The main source files and folders are organized as follows:
 
 ```text
 wing-run/
 ├── android/                 # Android platform project
 ├── ios/                     # iOS platform project
+├── web/                     # Web platform project
 ├── assets/
 │   ├── audio/               # Background music and sound effects
 │   ├── fonts/               # Pixel-style fonts
 │   ├── Bat.png              # Bat game sprite
-│   └── wingrun.png          # App icon and splash image
-├── docs/
-│   └── images/              # Project screenshots used in documentation
+│   └── wingrun.png          # App icon and splash artwork
 ├── lib/
-│   ├── component/           # Bat and obstacle components
-│   ├── data/                # SQLite database and player session
-│   ├── screens/             # Home screen and gameplay screen
+│   ├── component/           # Game components
+│   ├── data/                # SQLite database and player data
+│   ├── screens/             # Home and gameplay screens
 │   ├── widgets/             # Reusable interface components
 │   ├── audio.dart           # Music and sound management
 │   ├── main.dart            # Application entry point
 │   └── theme.dart           # App colors and styling
-├── test/                    # Tests
+├── test/                    # Automated tests
+├── LICENSE                  # MIT License
 └── pubspec.yaml             # Dependencies and Flutter asset configuration
 ```
 
@@ -171,7 +175,13 @@ Contributions, suggestions, and bug reports are welcome.
 
 ## 📄 License
 
-No license file is currently provided in this repository. Unless a license is added, the source code is not automatically granted an open-source license. Contact the repository owner before redistributing or reusing the project.
+Wing Run is open-source software licensed under the **MIT License**.
+
+You are free to use, copy, modify, merge, publish, distribute, sublicense, and sell copies of the software, provided that the original copyright notice and the MIT License text are included with substantial portions of the software.
+
+See the [LICENSE](LICENSE) file for the complete license terms.
+
+**Copyright (c) 2026 Atabe Sikadi Josué Etta**
 
 ---
 
