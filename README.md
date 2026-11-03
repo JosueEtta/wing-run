@@ -48,9 +48,21 @@ The obstacle speed increases over time, so the longer you survive, the more chal
 | [path](https://pub.dev/packages/path) | Database file path handling |
 | Custom assets and fonts | Bat sprite, audio, and retro-style typography |
 
-## 📥 Download the Project
+## 📥 Download and Play Wing Run
 
-You can download the source code to your computer in either of these ways.
+### Download the Android APK
+
+Visit the **[Wing Run live website](https://wingrun.vercel.app/)** to access the game website and download the Android APK.
+
+After downloading the APK:
+
+1. Open the downloaded APK file on your Android device.
+2. If Android asks, allow installation from that source in your device settings.
+3. Continue with the installation and launch Wing Run.
+
+### Download the Source Code
+
+You can also download the source code to your computer in either of these ways.
 
 ### Option 1: Clone with Git
 
