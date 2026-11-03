@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class C {
   static const red = Color(0xFFDC2626);
@@ -14,18 +13,25 @@ class C {
   static const highlight = Color(0xFFDBEAFE);
 }
 
-TextStyle pixel(double size, {Color color = C.navy}) =>
-    GoogleFonts.pressStart2p(fontSize: size, color: color, height: 1.3);
+TextStyle pixel(double size, {Color color = C.navy}) => TextStyle(
+  fontFamily: 'PressStart2P',
+  fontSize: size,
+  color: color,
+  height: 1.3,
+);
 
-TextStyle body(double size, {Color color = C.navy}) =>
-    GoogleFonts.vt323(fontSize: size, color: color);
+TextStyle body(double size, {Color color = C.navy}) => TextStyle(
+  fontFamily: 'VT323',
+  fontSize: size,
+  color: color,
+);
 
-/// Hard edges, thick dark outline, hard offset shadow.
-BoxDecoration pixelBox({Color color = Colors.white, double shadow = 4}) =>
+/// Flat box: thick dark outline, no shadow.
+///
+/// [shadow] is kept only so existing calls such as `pixelBox(shadow: 6)`
+/// still compile. It is ignored: the app has no shadows now.
+BoxDecoration pixelBox({Color color = Colors.white, double shadow = 0}) =>
     BoxDecoration(
       color: color,
       border: Border.all(color: C.navy, width: 3),
-      boxShadow: shadow == 0
-          ? null
-          : [BoxShadow(color: C.navy, offset: Offset(shadow, shadow))],
     );

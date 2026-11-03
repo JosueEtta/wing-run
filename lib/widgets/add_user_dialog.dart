@@ -118,9 +118,6 @@ class _NameDialogState extends State<_NameDialog> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: C.navy, width: 3),
-                  boxShadow: [
-                    BoxShadow(color: C.navy, offset: const Offset(6, 6)),
-                  ],
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,

@@ -8,6 +8,7 @@ import '../data/db.dart';
 import '../theme.dart';
 import '../widgets/pixel_widgets.dart';
 import '../widgets/user_switcher.dart';
+import '../audio.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -37,7 +38,7 @@ class _GameScreenState extends State<GameScreen>
   Size _area = Size.zero;
   Bat? _bat;
   final List<Block> _blocks = [];
-  bool _up = false, _down = false, _over = false;
+  bool _up = false, _down = false, _over = false, _paused = false;
   double _elapsed = 0, _distToNext = 0;
   Duration _last = Duration.zero;
   int _score = 0, _bestAtStart = 0;
@@ -63,8 +64,23 @@ class _GameScreenState extends State<GameScreen>
     _distToNext = _area.width * firstColumnAt;
     _score = 0;
     _over = false;
+    _paused = false;
     _up = _down = false;
     _bestAtStart = session.current.best;
+    _ticker.muted = false;
+  }
+
+  void _pause() {
+    if (_over || _paused) return;
+    setState(() {
+      _paused = true;
+      _up = _down = false; // release held buttons
+    });
+    _ticker.muted = true;
+  }
+
+  void _resume() {
+    setState(() => _paused = false);
     _ticker.muted = false;
   }
 
@@ -76,7 +92,9 @@ class _GameScreenState extends State<GameScreen>
     final dt = ((d - _last).inMicroseconds / 1e6).clamp(0.0, 0.05);
     _last = d;
     final bat = _bat;
-    if (bat == null || _over || _ticker.muted || _img == null) return;
+    if (bat == null || _over || _paused || _ticker.muted || _img == null) {
+      return;
+    }
 
     _elapsed += dt;
     bat.update(dt, (_down ? 1 : 0) - (_up ? 1 : 0));
@@ -109,6 +127,7 @@ class _GameScreenState extends State<GameScreen>
     if (dead) {
       _over = true;
       _score = newScore; // the saved score matches the last displayed one
+      AudioService.instance.playCrash(); // <-- the new line
       session.submitScore(_score);
       setState(() {});
     } else if (newScore != _score) {
@@ -125,28 +144,34 @@ class _GameScreenState extends State<GameScreen>
       body: Stack(children: [
         SafeArea(
           child: Row(children: [
-            // Left panel: score + Up
+            // Left panel: score + pause + Down
             SizedBox(
               width: 150,
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('SCORE', style: pixel(9)),
-                  const SizedBox(height: 6),
-                  Text('$_score',
-                      style: pixel(20, color: _pastBest ? C.green : C.navy)),
-                  if (_pastBest) ...[
-                    const SizedBox(height: 6),
-                    Text('PAST BEST!', style: pixel(8, color: C.green)),
-                  ],
-                  const SizedBox(height: 6),
-                  Text('BEST ${max(session.current.best, 0)}', style: body(20)),
-                  const Spacer(),
-                  Center(
-                    child: HoldButton(
-                        icon: Icons.keyboard_arrow_up, onChanged: (v) => _up = v),
-                  ),
-                ]),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('SCORE', style: pixel(9)),
+                      const SizedBox(height: 6),
+                      Text('$_score',
+                          style: pixel(20, color: _pastBest ? C.green : C.navy)),
+                      if (_pastBest) ...[
+                        const SizedBox(height: 6),
+                        Text('PAST BEST!', style: pixel(8, color: C.green)),
+                      ],
+                      const SizedBox(height: 6),
+                      Text('BEST ${max(session.current.best, 0)}',
+                          style: body(20)),
+                      const SizedBox(height: 10),
+                      if (!_over) _PauseButton(onTap: _pause),
+                      const Spacer(),
+                      Center(
+                        child: HoldButton(
+                            icon: Icons.keyboard_arrow_down,
+                            onChanged: (v) => _down = v),
+                      ),
+                    ]),
               ),
             ),
             // Play area
@@ -170,7 +195,7 @@ class _GameScreenState extends State<GameScreen>
                 }),
               ),
             ),
-            // Right panel: user switcher + Down
+            // Right panel: user switcher + Up
             SizedBox(
               width: 150,
               child: Padding(
@@ -183,7 +208,7 @@ class _GameScreenState extends State<GameScreen>
                       onClose: (changed) {
                         if (changed && _area != Size.zero) {
                           setState(_reset);
-                        } else if (!_over) {
+                        } else if (!_over && !_paused) {
                           _ticker.muted = false;
                         }
                       },
@@ -191,17 +216,27 @@ class _GameScreenState extends State<GameScreen>
                   ),
                   const Spacer(),
                   HoldButton(
-                      icon: Icons.keyboard_arrow_down, onChanged: (v) => _down = v),
+                      icon: Icons.keyboard_arrow_up,
+                      onChanged: (v) => _up = v),
                 ]),
               ),
             ),
           ]),
         ),
-        if (_over) _GameOver(
-          score: _score,
-          onRestart: () => setState(_reset),
-          onHome: () => Navigator.pop(context),
-        ),
+        if (_paused)
+          _PauseOverlay(
+            onResume: _resume,
+            onHome: () => Navigator.pop(context),
+          ),
+        if (_over)
+          _GameOver(
+            score: _score,
+          onRestart: () {
+           setState(_reset);
+           AudioService.instance.ensureMusic();
+           },
+            onHome: () => Navigator.pop(context),
+          ),
       ]),
     );
   }
@@ -231,8 +266,61 @@ class _GamePainter extends CustomPainter {
   bool shouldRepaint(_GamePainter o) => o.bat != bat || o.img != img;
 }
 
+class _PauseButton extends StatelessWidget {
+  const _PauseButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'Pause',
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: C.navy, width: 3),
+        ),
+        child: Icon(Icons.pause, color: C.navy, size: 24),
+      ),
+    ),
+  );
+}
+
+class _PauseOverlay extends StatelessWidget {
+  const _PauseOverlay({required this.onResume, required this.onHome});
+  final VoidCallback onResume, onHome;
+
+  @override
+  Widget build(BuildContext context) => Positioned.fill(
+    child: Container(
+      color: C.navy.withOpacity(0.78),
+      alignment: Alignment.center,
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text('PAUSED', style: pixel(26, color: Colors.white)),
+        const SizedBox(height: 28),
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          PixelButton(
+              icon: Icons.play_arrow, color: C.red, onTap: onResume),
+          const SizedBox(width: 24),
+          PixelButton(
+              icon: Icons.home,
+              color: Colors.white,
+              textColor: C.navy,
+              onTap: onHome),
+        ]),
+      ]),
+    ),
+  );
+}
+
 class _GameOver extends StatelessWidget {
-  const _GameOver({required this.score, required this.onRestart, required this.onHome});
+  const _GameOver(
+      {required this.score, required this.onRestart, required this.onHome});
   final int score;
   final VoidCallback onRestart, onHome;
 

@@ -32,37 +32,48 @@ class Block {
 
   void paint(Canvas c, double height) {
     final r = rect(height);
-    c.drawRect(r, Paint()..color = _blue);
-    // light highlight stripe
-    c.drawRect(
-        Rect.fromLTWH(r.left + 5, r.top, 5, r.height), Paint()..color = _light);
-    // dark outline
-    c.drawRect(
-        r.deflate(1.5),
-        Paint()
-          ..color = _navy
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 3);
+
+    // Body with rounded corners (radius 6, like the home page)
+    final body = RRect.fromRectAndRadius(r, const Radius.circular(6));
+    c.drawRRect(body, Paint()..color = _blue);
+
+    // Light stripe: 8px from the left, 6px wide, 80% of the inner height,
+    // centered vertically, rounded ends.
+    final innerH = r.height - 6;
+    final stripeH = innerH * 0.8;
+    final stripe = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        r.left + 8,
+        r.top + 3 + (innerH - stripeH) / 2,
+        6,
+        stripeH,
+      ),
+      const Radius.circular(3),
+    );
+    c.drawRRect(stripe, Paint()..color = _light);
+
+    // Navy outline, drawn inside the edge like Border.all
+    c.drawRRect(
+      body.deflate(1.5),
+      Paint()
+        ..color = _navy
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3,
+    );
   }
-}
+} // <-- this closing brace was missing
 
 /// Builds columns around a gap whose center moves from one column to the next.
-///
-/// The gap is chosen first; the top block fills the space above it and the
-/// bottom block the space below it. So the bat can never sit still: the free
-/// space is always somewhere new. All sizes are fractions of the height.
 class ColumnMaker {
-  static const minGap = 0.20; // never smaller than 20% (plan rule)
+  static const minGap = 0.20;
   static const maxGap = 0.32;
-  static const edgeMargin = 0.03; // keep the gap clear of the red edges
-  static const widthFrac = 0.15; // block width, as a fraction of the height
+  static const edgeMargin = 0.03;
+  static const widthFrac = 0.15;
 
   double _prevCenter = 0.5;
 
   void reset() => _prevCenter = 0.5;
 
-  /// [maxShift]: the farthest the gap center may move since the last column
-  /// (fraction of the height), computed from the bat's travel time.
   List<Block> make(Random rnd, Size area, double maxShift) {
     final gap = minGap + rnd.nextDouble() * (maxGap - minGap);
     final lo = gap / 2 + edgeMargin;
